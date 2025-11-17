@@ -209,15 +209,22 @@ def print_results(prediction_classes, prediction_classes_open, y_test, y_open, N
     y_test=y_test[:len(prediction_classes)]
     y_open=y_open[:len(prediction_classes_open)]
 
-    Matrix=[]
-    for i in range(NB_CLASSES+1):
-        Matrix.append(np.zeros(NB_CLASSES+1))
+    # Matrix=[]
+    # for i in range(NB_CLASSES+1):
+        #Matrix.append(np.zeros(NB_CLASSES+1))
+    Matrix = np.zeros((NB_CLASSES + 1, NB_CLASSES + 1), dtype=np.int64)
+
+#     for i in range(len(y_test)):
+#         Matrix[y_test[i]][prediction_classes[i]]+=1
+
+#     for i in range(len(y_open)):
+#         Matrix[y_open[i]][prediction_classes_open[i]]+=1
 
     for i in range(len(y_test)):
-        Matrix[y_test[i]][prediction_classes[i]]+=1
+        Matrix[int(y_test[i]), int(prediction_classes[i])] += 1
 
     for i in range(len(y_open)):
-        Matrix[y_open[i]][prediction_classes_open[i]]+=1
+        Matrix[int(y_open[i]), int(prediction_classes_open[i])] += 1
 
     
     print("\n", "Micro")
@@ -338,42 +345,75 @@ def final_classification(NB_CLASSES, model_predictions_test, model_predictions_o
     print_results(prediction_classes, prediction_classes_open, y_test, y_open, NB_CLASSES, 'K-LND3', dataset_name)
 
 
+# def Micro_F1(Matrix, NB_CLASSES):
+#     epsilon = 1e-8
+#     TP = 0
+#     FP = 0
+#     TN = 0
+
+#     for k in range(NB_CLASSES):
+#         TP += Matrix[k][k]
+#         FP += (np.sum(Matrix, axis=0)[k] - Matrix[k][k])
+#         TN += (np.sum(Matrix, axis=1)[k] - Matrix[k][k])
+
+#     Micro_Prec = TP / (TP + FP)
+#     Micro_Rec = TP / (TP + TN)
+#     print("Micro_Prec:", Micro_Prec)
+#     print("Micro_Rec:", Micro_Rec)
+#     Micro_F1 = 2 * Micro_Prec * Micro_Rec / (Micro_Rec + Micro_Prec + epsilon)
+
+#     return Micro_F1
+
 def Micro_F1(Matrix, NB_CLASSES):
-    epsilon = 1e-8
-    TP = 0
-    FP = 0
-    TN = 0
-
-    for k in range(NB_CLASSES):
-        TP += Matrix[k][k]
-        FP += (np.sum(Matrix, axis=0)[k] - Matrix[k][k])
-        TN += (np.sum(Matrix, axis=1)[k] - Matrix[k][k])
-
-    Micro_Prec = TP / (TP + FP)
-    Micro_Rec = TP / (TP + TN)
+    M = np.asarray(Matrix)
+    eps = 1e-8
+    # in multi-classification case: micro-precision = micro-recall = accuracy
+    TP = np.trace(M[:NB_CLASSES, :NB_CLASSES])  
+    Total = M[:NB_CLASSES, :NB_CLASSES].sum() + M[NB_CLASSES, :NB_CLASSES].sum() + M[:NB_CLASSES, NB_CLASSES].sum()
+    Micro_Prec = TP / (Total + eps)
+    Micro_Rec  = TP / (Total + eps)
+    Micro_F1   = 2 * Micro_Prec * Micro_Rec / (Micro_Prec + Micro_Rec + eps)
     print("Micro_Prec:", Micro_Prec)
     print("Micro_Rec:", Micro_Rec)
-    Micro_F1 = 2 * Micro_Prec * Micro_Rec / (Micro_Rec + Micro_Prec + epsilon)
-
     return Micro_F1
 
+# def Macro_F1(Matrix, NB_CLASSES):
+#     epsilon = 1e-8
+#     F1s = np.zeros(NB_CLASSES)
+
+#     for k in range(NB_CLASSES):
+#         TP = Matrix[k][k]
+#         FP = np.sum(Matrix[:, k]) - TP
+#         FN = np.sum(Matrix[k, :]) - TP
+
+#         precision = TP / (TP + FP + epsilon)
+#         recall = TP / (TP + FN + epsilon)
+#         F1s[k] = 2 * precision * recall / (precision + recall + epsilon)
+
+#     macro_F1 = np.mean(F1s)
+#     print("Per-class F1s:", F1s)
+#     print("Macro F1:", macro_F1)
+#     return macro_F1
+
+
 def Macro_F1(Matrix, NB_CLASSES):
-    epsilon = 1e-8
-    F1s = np.zeros(NB_CLASSES)
-
+    M = np.asarray(Matrix)
+    eps = 1e-8
+    F1s = np.zeros(NB_CLASSES, dtype=np.float64)
     for k in range(NB_CLASSES):
-        TP = Matrix[k][k]
-        FP = np.sum(Matrix[:, k]) - TP
-        FN = np.sum(Matrix[k, :]) - TP
-
-        precision = TP / (TP + FP + epsilon)
-        recall = TP / (TP + FN + epsilon)
-        F1s[k] = 2 * precision * recall / (precision + recall + epsilon)
-
-    macro_F1 = np.mean(F1s)
+        TP = M[k, k]
+        FP = M[:, k].sum() - TP
+        FN = M[k, :].sum() - TP
+        precision = TP / (TP + FP + eps)
+        recall    = TP / (TP + FN + eps)
+        F1s[k]    = 2 * precision * recall / (precision + recall + eps)
+    macro_F1 = float(F1s.mean())
     print("Per-class F1s:", F1s)
     print("Macro F1:", macro_F1)
     return macro_F1
+
+
+
 
 
 def main(args):
